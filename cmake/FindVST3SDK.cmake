@@ -41,16 +41,16 @@ find_path(VSTSDK_HOME
     	${VSTSDK_SEARCH_PATHS_HINT}
 )
 
-find_path(VST2SDK_HOME
-	  pluginterfaces/vst2.x/aeffect.h
-	  public.sdk/source/vst2.x/audioeffectx.h
-	  public.sdk/source/vst2.x/audioeffect.h
-	HINTS
-    	${VSTSDK_SEARCH_PATHS_HINT}
-)
+# find_path(VST2SDK_HOME
+# 	  pluginterfaces/vst2.x/aeffect.h
+# 	  public.sdk/source/vst2.x/audioeffectx.h
+# 	  public.sdk/source/vst2.x/audioeffect.h
+# 	HINTS
+#     	${VSTSDK_SEARCH_PATHS_HINT}
+# )
 
 set(VST3SDK_HOME "${VSTSDK_HOME}/VST3_SDK" CACHE PATH "path to the VST3_SDK")
-set(VST2SDK_HOME "${VST2SDK_HOME}" CACHE PATH "path to the VST2_SDK")
+set(VST2SDK_HOME "${VST3SDK_HOME}" CACHE PATH "path to the VST2_SDK")
 
 # handle the QUIETLY and REQUIRED arguments and set AAXSDK_FOUND to TRUE if 
 # all listed variables are TRUE
