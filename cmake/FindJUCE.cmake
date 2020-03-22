@@ -63,9 +63,9 @@ function(juce_module_declaration_set_properties prefix module_declaration proper
                 string(REGEX REPLACE " |," ";" var_clean "${var_raw}")
 
                 # debug 
-                # message("line: ${line}")
-                # message("var_raw: ${var_raw}")
-                # message("var_clean: ${var_clean}")
+                message("line: ${line}")
+                message("var_raw: ${var_raw}")
+                message("var_clean: ${var_clean}")
 
                 set(${prefix}_${property} ${var_clean} PARENT_SCOPE)
             endif()
@@ -103,6 +103,7 @@ function(juce_module_get_info module)
         iOSFrameworks 
         iOSLibs
         linuxLibs
+        linuxPackages
         windowsLibs
         minimumCppStandard
         searchpaths
@@ -124,17 +125,21 @@ endfunction()
 
 macro(juce_module_set_platformlibs module)
     set(JUCE_${module}_platformlibs "")
-
+    message("!!!!!!!!!!!!!!!!!!!!!! ADDDING PLATFORMLIBS FOR MODULE ${module}")
     if(APPLE_IOS OR IOS OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
+      message("!!!!! APPLE IOS")
         set(_libs ${JUCE_${module}_iOSFrameworks} ${JUCE_${module}_iOSLibs})
     elseif(APPLE)
+      message("!!!!!! APPLE")
         set(_libs ${JUCE_${module}_OSXFrameworks} ${JUCE_${module}_OSXLibs})
     elseif(WINDOWS)
+      message("!!!!!!!! WINDOWS")
         set(_libs ${JUCE_${module}_windowsLibs})
     #elseif(Android)
-    elseif(Linux)
-        set(_libs ${JUCE_${module}_linuxLibs})
-    else()
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message("!!!!!!! LINUX the libs: ${JUCE_${module}_linuxLibs}")
+        set(_libs "${JUCE_${module}_linuxLibs}")
+        
     endif()
 
     foreach(_lib ${_libs})
@@ -283,6 +288,41 @@ function(juce_generate_juce_header output_file)
     configure_file("${CMAKE_CURRENT_LIST_DIR}/FindJuceTemplates/JuceHeader.h.in" ${output_file})
 endfunction()
 
+function(convert_space_string_to_list input_string flag output_variable)
+  string(REPLACE "${flag}" "" STRING_WO_FLAG "${input_string}")
+  string(REPLACE " " ";" LIST_RESULT "${STRING_WO_FLAG}")
+  set(output_variable ${LIST_RESULT})
+endfunction()
+
+
+function(juce_linux_packages_to_path module packages)
+
+  message("PACKAGES BEFORE PROCESSING: ${packages}")
+  string (REPLACE ";" " " PACKAGES_WITH_WHITESPACES "${packages}")
+  message("PACKAGES WITH WHITESPACES: ${PACKAGES_WITH_WHITESPACES}")
+  execute_process(COMMAND "pkg-config" "--cflags"
+                   "${PACKAGES_WITH_WHITESPACES}"
+                   OUTPUT_VARIABLE
+                   JUCE_PACKAGES_INCLUDE_PATHS)
+                 execute_process(COMMAND "pkg-config" "--libs"
+                   "${PACKAGES_WITH_WHITESPACES}"
+                   OUTPUT_VARIABLE
+                   JUCE_PACKAGES_LIBS)
+  message("!!!!!!--->> PACKAGES INCLUDE PATHS: ${JUCE_PACKAGES_INCLUDE_PATHS}")
+  message("!!!!!!--->> PACKAGES LIBS: ${JUCE_PACKAGES_LIBS}")
+
+  if(JUCE_PACKAGES_INCLUDE_PATHS)
+    convert_space_string_to_list(${JUCE_PACKAGES_INCLUDE_PATHS} "-I" JUCE_PACKAGES_INCLUDE_LIST)
+  endif()
+
+  if(JUCE_PACKAGES_LIBS)
+    convert_space_string_to_list(${JUCE_PACKAGES_LIBS} "-l" JUCE_PACKAGES_LIBS_LIST)
+  endif()
+
+  
+  set(JUCE_${module}_PACKAGES_INCLUDE_PATHS ${JUCE_PACKAGES_INCLUDE_LIST} PARENT_SCOPE)
+  set(JUCE_${module}_PACKAGES_LIBS ${JUCE_PACKAGES_LIBS_LIST} PARENT_SCOPE)
+endfunction()
 #------------------------------------------------------------------------------
 
 macro(juce_add_module module)
@@ -326,8 +366,14 @@ macro(juce_add_module module)
                 endif()
             endif()
 
+            if((CMAKE_SYSTEM_NAME STREQUAL "Linux") AND (JUCE_${module}_linuxPackages))
+              message("YES!")
+              juce_linux_packages_to_path(${module} ${JUCE_${module}_linuxPackages})
+
+            endif()
+
             add_library(${module} INTERFACE IMPORTED)
-            set_property(TARGET ${module} PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${JUCE_${module}_searchpaths})
+            set_property(TARGET ${module} PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${JUCE_${module}_searchpaths} ${JUCE_${module}_PACKAGES_INCLUDE_PATHS})
             set_property(TARGET ${module} PROPERTY INTERFACE_LINK_LIBRARIES 
                     juce_common
                     "${JUCE_${module}_dependencies}"
